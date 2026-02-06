@@ -82,6 +82,23 @@ latest = df[df["vehicle_class"] == vc].sort_values(["month", "bidding_no"]).tail
 st.subheader("Latest Record Used")
 st.dataframe(latest)
 
+# ---- Scenario Inputs (NEW) ----
+st.subheader("Adjust Scenario Inputs (Optional)")
+st.caption("You can tweak these 3 inputs to see how the prediction changes. History-based features (lags/rolling) stay the same.")
+
+base_quota = int(latest["quota"].iloc[0])
+base_received = int(latest["bids_received"].iloc[0])
+base_success = int(latest["bids_success"].iloc[0])
+
+quota_in = st.number_input("Quota", min_value=0, value=base_quota, step=1)
+received_in = st.number_input("Bids Received", min_value=0, value=base_received, step=1)
+success_in = st.number_input("Bids Successful", min_value=0, value=base_success, step=1)
+
+# Clamp: bids_success cannot exceed bids_received
+if success_in > received_in:
+    st.warning("Bids Successful cannot exceed Bids Received. Adjusting it to match.")
+    success_in = received_in
+
 # ---- Build input to model ----
 expected_cols = [
     "quota", "bids_success", "bids_received",
@@ -98,6 +115,19 @@ if missing:
     st.stop()
 
 X_latest = latest[expected_cols].copy()
+
+# Apply overrides
+X_latest.loc[:, "quota"] = quota_in
+X_latest.loc[:, "bids_received"] = received_in
+X_latest.loc[:, "bids_success"] = success_in
+
+# Recompute dependent ratio features
+X_latest.loc[:, "demand_supply_ratio"] = (received_in / quota_in) if quota_in != 0 else 0
+X_latest.loc[:, "success_rate"] = (success_in / received_in) if received_in != 0 else 0
+
+# Optional: show the final input row being used
+with st.expander("Show final model input row"):
+    st.dataframe(X_latest)
 
 if st.button("Predict Next Premium"):
     try:
