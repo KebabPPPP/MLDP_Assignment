@@ -82,13 +82,30 @@ latest = df[df["vehicle_class"] == vc].sort_values(["month", "bidding_no"]).tail
 st.subheader("Latest Record Used")
 st.dataframe(latest)
 
-# ---- Scenario Inputs (UPDATED with reset + stable widget state) ----
+# ---- Scenario Inputs (with reset + per-category state) ----
 st.subheader("Adjust Scenario Inputs (Optional)")
 st.caption("You can tweak these 3 inputs to see how the prediction changes. History-based features (lags/rolling) stay the same.")
 
 base_quota = int(latest["quota"].iloc[0])
 base_received = int(latest["bids_received"].iloc[0])
 base_success = int(latest["bids_success"].iloc[0])
+
+# Reset button (sets values back to latest record for THIS vehicle class)
+if st.button("Reset inputs to latest record"):
+    st.session_state[f"quota_in_{vc}"] = base_quota
+    st.session_state[f"received_in_{vc}"] = base_received
+    st.session_state[f"success_in_{vc}"] = base_success
+
+quota_in = st.number_input("Quota", min_value=0, value=base_quota, step=1, key=f"quota_in_{vc}")
+received_in = st.number_input("Bids Received", min_value=0, value=base_received, step=1, key=f"received_in_{vc}")
+success_in = st.number_input("Bids Successful", min_value=0, value=base_success, step=1, key=f"success_in_{vc}")
+
+# Clamp: bids_success cannot exceed bids_received
+if success_in > received_in:
+    st.warning("Bids Successful cannot exceed Bids Received. Adjusting it to match.")
+    st.session_state[f"success_in_{vc}"] = received_in
+    success_in = received_in
+
 
 # Ensure session_state has defaults for current selection
 if "quota_in" not in st.session_state:
