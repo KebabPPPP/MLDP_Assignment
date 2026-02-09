@@ -82,7 +82,7 @@ latest = df[df["vehicle_class"] == vc].sort_values(["month", "bidding_no"]).tail
 st.subheader("Latest Record Used")
 st.dataframe(latest)
 
-# ---- Scenario Inputs (with reset + per-category state) ----
+# ---- Scenario Inputs (ONE version only) ----
 st.subheader("Adjust Scenario Inputs (Optional)")
 st.caption("You can tweak these 3 inputs to see how the prediction changes. History-based features (lags/rolling) stay the same.")
 
@@ -90,45 +90,33 @@ base_quota = int(latest["quota"].iloc[0])
 base_received = int(latest["bids_received"].iloc[0])
 base_success = int(latest["bids_success"].iloc[0])
 
-# Reset button (sets values back to latest record for THIS vehicle class)
-if st.button("Reset inputs to latest record"):
-    st.session_state[f"quota_in_{vc}"] = base_quota
-    st.session_state[f"received_in_{vc}"] = base_received
-    st.session_state[f"success_in_{vc}"] = base_success
+# Per-category keys so switching Category A/B/C doesn't keep old values
+k_quota = f"quota_in_{vc}"
+k_recv = f"received_in_{vc}"
+k_succ = f"success_in_{vc}"
 
-quota_in = st.number_input("Quota", min_value=0, value=base_quota, step=1, key=f"quota_in_{vc}")
-received_in = st.number_input("Bids Received", min_value=0, value=base_received, step=1, key=f"received_in_{vc}")
-success_in = st.number_input("Bids Successful", min_value=0, value=base_success, step=1, key=f"success_in_{vc}")
+# Init defaults once per category
+if k_quota not in st.session_state:
+    st.session_state[k_quota] = base_quota
+if k_recv not in st.session_state:
+    st.session_state[k_recv] = base_received
+if k_succ not in st.session_state:
+    st.session_state[k_succ] = base_success
+
+# Reset button
+if st.button("Reset inputs to latest record"):
+    st.session_state[k_quota] = base_quota
+    st.session_state[k_recv] = base_received
+    st.session_state[k_succ] = base_success
+
+quota_in = st.number_input("Quota", min_value=0, value=st.session_state[k_quota], step=1, key=k_quota)
+received_in = st.number_input("Bids Received", min_value=0, value=st.session_state[k_recv], step=1, key=k_recv)
+success_in = st.number_input("Bids Successful", min_value=0, value=st.session_state[k_succ], step=1, key=k_succ)
 
 # Clamp: bids_success cannot exceed bids_received
 if success_in > received_in:
     st.warning("Bids Successful cannot exceed Bids Received. Adjusting it to match.")
-    st.session_state[f"success_in_{vc}"] = received_in
-    success_in = received_in
-
-
-# Ensure session_state has defaults for current selection
-if "quota_in" not in st.session_state:
-    st.session_state["quota_in"] = base_quota
-if "received_in" not in st.session_state:
-    st.session_state["received_in"] = base_received
-if "success_in" not in st.session_state:
-    st.session_state["success_in"] = base_success
-
-# Reset button (sets widget values back to latest record)
-if st.button("Reset inputs to latest record"):
-    st.session_state["quota_in"] = base_quota
-    st.session_state["received_in"] = base_received
-    st.session_state["success_in"] = base_success
-
-quota_in = st.number_input("Quota", min_value=0, value=st.session_state["quota_in"], step=1, key="quota_in")
-received_in = st.number_input("Bids Received", min_value=0, value=st.session_state["received_in"], step=1, key="received_in")
-success_in = st.number_input("Bids Successful", min_value=0, value=st.session_state["success_in"], step=1, key="success_in")
-
-# Clamp: bids_success cannot exceed bids_received
-if success_in > received_in:
-    st.warning("Bids Successful cannot exceed Bids Received. Adjusting it to match.")
-    st.session_state["success_in"] = received_in
+    st.session_state[k_succ] = received_in
     success_in = received_in
 
 # ---- Build input to model ----
@@ -148,16 +136,15 @@ if missing:
 
 X_latest = latest[expected_cols].copy()
 
-if st.button("Reset inputs to latest record"):
-    st.session_state[f"quota_in_{vc}"] = base_quota
-    st.session_state[f"received_in_{vc}"] = base_received
-    st.session_state[f"success_in_{vc}"] = base_success
+# Apply overrides
+X_latest.loc[:, "quota"] = quota_in
+X_latest.loc[:, "bids_received"] = received_in
+X_latest.loc[:, "bids_success"] = success_in
 
 # Recompute dependent ratio features
 X_latest.loc[:, "demand_supply_ratio"] = (received_in / quota_in) if quota_in != 0 else 0
 X_latest.loc[:, "success_rate"] = (success_in / received_in) if received_in != 0 else 0
 
-# Optional: show the final input row being used
 with st.expander("Show final model input row"):
     st.dataframe(X_latest)
 
