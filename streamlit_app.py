@@ -116,8 +116,8 @@ success_in = st.number_input("Bids Successful", min_value=0, value=st.session_st
 # Clamp: bids_success cannot exceed bids_received
 if success_in > received_in:
     st.warning("Bids Successful cannot exceed Bids Received. Adjusting it to match.")
-    st.session_state[k_succ] = received_in
     success_in = received_in
+
 
 # ---- Build input to model ----
 expected_cols = [
