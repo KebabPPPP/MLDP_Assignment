@@ -131,10 +131,10 @@ if missing:
 
 X_latest = latest[expected_cols].copy()
 
-# Apply overrides
-X_latest.loc[:, "quota"] = quota_in
-X_latest.loc[:, "bids_received"] = received_in
-X_latest.loc[:, "bids_success"] = success_in
+if st.button("Reset inputs to latest record"):
+    st.session_state[f"quota_in_{vc}"] = base_quota
+    st.session_state[f"received_in_{vc}"] = base_received
+    st.session_state[f"success_in_{vc}"] = base_success
 
 # Recompute dependent ratio features
 X_latest.loc[:, "demand_supply_ratio"] = (received_in / quota_in) if quota_in != 0 else 0
