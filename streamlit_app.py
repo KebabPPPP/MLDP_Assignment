@@ -82,7 +82,7 @@ latest = df[df["vehicle_class"] == vc].sort_values(["month", "bidding_no"]).tail
 st.subheader("Latest Record Used")
 st.dataframe(latest)
 
-# ---- Scenario Inputs (NEW) ----
+# ---- Scenario Inputs (UPDATED with reset + stable widget state) ----
 st.subheader("Adjust Scenario Inputs (Optional)")
 st.caption("You can tweak these 3 inputs to see how the prediction changes. History-based features (lags/rolling) stay the same.")
 
@@ -90,13 +90,28 @@ base_quota = int(latest["quota"].iloc[0])
 base_received = int(latest["bids_received"].iloc[0])
 base_success = int(latest["bids_success"].iloc[0])
 
-quota_in = st.number_input("Quota", min_value=0, value=base_quota, step=1)
-received_in = st.number_input("Bids Received", min_value=0, value=base_received, step=1)
-success_in = st.number_input("Bids Successful", min_value=0, value=base_success, step=1)
+# Ensure session_state has defaults for current selection
+if "quota_in" not in st.session_state:
+    st.session_state["quota_in"] = base_quota
+if "received_in" not in st.session_state:
+    st.session_state["received_in"] = base_received
+if "success_in" not in st.session_state:
+    st.session_state["success_in"] = base_success
+
+# Reset button (sets widget values back to latest record)
+if st.button("Reset inputs to latest record"):
+    st.session_state["quota_in"] = base_quota
+    st.session_state["received_in"] = base_received
+    st.session_state["success_in"] = base_success
+
+quota_in = st.number_input("Quota", min_value=0, value=st.session_state["quota_in"], step=1, key="quota_in")
+received_in = st.number_input("Bids Received", min_value=0, value=st.session_state["received_in"], step=1, key="received_in")
+success_in = st.number_input("Bids Successful", min_value=0, value=st.session_state["success_in"], step=1, key="success_in")
 
 # Clamp: bids_success cannot exceed bids_received
 if success_in > received_in:
     st.warning("Bids Successful cannot exceed Bids Received. Adjusting it to match.")
+    st.session_state["success_in"] = received_in
     success_in = received_in
 
 # ---- Build input to model ----
